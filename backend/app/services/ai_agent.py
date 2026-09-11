@@ -1,8 +1,6 @@
 import os
 from google import genai
 from google.genai import types
-from sqlalchemy.orm import Session
-from .. import models
 
 _client = None
 
@@ -14,18 +12,18 @@ def _get_client():
     return _client
 
 
-# ---- Tools the agent can call ----
+# ---- Tools ----
 
 def list_transactions(limit: int = 50) -> list[dict]:
-    """List recent transactions. Use this to answer questions about spending,
-    categories, or totals. Returns up to `limit` transactions, newest first.
+    """List recent transactions, newest first. Use when the user asks to see
+    transactions or wants specific items. Returns up to `limit` rows.
 
     Args:
-        limit: Maximum number of transactions to return.
+        limit: Maximum number of transactions to return (default 50).
     """
     from ..database import SessionLocal
-
-    db: Session = SessionLocal()
+    from .. import models
+    db = SessionLocal()
     try:
         rows = (
             db.query(models.Transaction)
@@ -48,13 +46,14 @@ def list_transactions(limit: int = 50) -> list[dict]:
 
 
 def spending_by_category() -> dict:
-    """Return total spending grouped by category. Use this for questions like
+    """Return total spending grouped by category. Use for questions like
     'how much did I spend on food' or 'what is my biggest category'.
+    Returns a dict of {category: total_amount}.
     """
     from ..database import SessionLocal
+    from .. import models
     from sqlalchemy import func
-
-    db: Session = SessionLocal()
+    db = SessionLocal()
     try:
         rows = (
             db.query(
@@ -64,35 +63,57 @@ def spending_by_category() -> dict:
             .group_by(models.Transaction.category)
             .all()
         )
-        return {cat: float(total) for cat, total in rows}
+        return {cat or "uncategorized": float(total or 0) for cat, total in rows}
     finally:
         db.close()
 
 
-# ---- Agent loop ----
+def total_spending() -> dict:
+    """Return the sum of ALL transactions, plus the count. Use for questions
+    like 'how much have I spent in total' or 'what is my total spend'.
+    Returns {'total': amount, 'count': n}.
+    """
+    from ..database import SessionLocal
+    from .. import models
+    from sqlalchemy import func
+    db = SessionLocal()
+    try:
+        total, count = db.query(
+            func.coalesce(func.sum(models.Transaction.amount), 0),
+            func.count(models.Transaction.id),
+        ).one()
+        return {"total": float(total), "count": int(count)}
+    finally:
+        db.close()
+
+
+# ---- Agent ----
 
 SYSTEM_INSTRUCTION = """You are FlowLedger, a financial operations copilot.
 You help the user understand their transactions and spending.
-Use the provided tools to fetch real data before answering.
-Be concise. When you report amounts, include the category and total.
-If the user asks something you cannot answer with the available tools, say so."""
+
+Rules:
+- ALWAYS call a tool before answering anything about spending or transactions. Never guess numbers.
+- For "total" or "overall" or "everything" questions, call total_spending.
+- For "by category" or "on <category>" questions, call spending_by_category.
+- For "list" or "show me" or "last N" questions, call list_transactions.
+- If a tool returns an empty result, say so plainly.
+- Be concise. Format amounts with two decimals and a currency symbol.
+"""
 
 
 def chat(user_message: str) -> str:
     client = _get_client()
-
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_INSTRUCTION,
-        tools=[list_transactions, spending_by_category],
+        tools=[list_transactions, spending_by_category, total_spending],
         automatic_function_calling=types.AutomaticFunctionCallingConfig(
-            maximum_remote_calls=5
+            maximum_remote_calls=8
         ),
     )
-
-    chat_session = client.chats.create(
-        model="gemini-3.6-flash",
-        config=config,
-    )
-
+    chat_session = client.chats.create(model="gemini-3.6-flash", config=config)
     response = chat_session.send_message(user_message)
-    return response.text
+    text = response.text
+    if not text:
+        return "I couldn't produce an answer for that. Try rephrasing."
+    return text

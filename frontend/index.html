@@ -7,33 +7,84 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <h1>FlowLedger</h1>
-    <p class="tagline">AI financial ops copilot</p>
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v18h18"/>
+          <path d="M7 14l4-4 4 4 5-6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>FlowLedger</h1>
+        <p>Personal finance, organized.</p>
+      </div>
+    </div>
+
+    <div class="balance">
+      <span class="balance-label">Total spent</span>
+      <span class="balance-amount" id="stat-total">$0.00</span>
+      <span class="balance-meta" id="stat-meta">across 0 transactions</span>
+    </div>
   </header>
+
   <main>
-    <section class="panel">
-      <h2>Add transaction</h2>
-      <form id="tx-form">
-        <input name="description" placeholder="Description" required />
-        <input name="amount" type="number" step="0.01" placeholder="Amount" required />
-        <input name="category" placeholder="Category" value="uncategorized" />
-        <button type="submit">Add</button>
-      </form>
+    <section class="ledger">
+      <div class="card ledger-card">
+        <div class="card-head">
+          <h2>Transactions</h2>
+          <span class="pill" id="tx-count-pill">0</span>
+        </div>
+
+        <form id="tx-form" class="add-row">
+          <input name="description" placeholder="What did you spend on?" required autocomplete="off" />
+          <input name="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
+          <input name="category" list="cat-list" placeholder="food" value="" />
+          <datalist id="cat-list">
+            <option value="food"></option>
+            <option value="transport"></option>
+            <option value="subscriptions"></option>
+            <option value="shopping"></option>
+            <option value="utilities"></option>
+            <option value="entertainment"></option>
+            <option value="health"></option>
+            <option value="uncategorized"></option>
+          </datalist>
+          <button type="submit" aria-label="Add transaction">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </form>
+
+        <ul id="tx-list" class="tx-list"></ul>
+      </div>
     </section>
-    <section class="panel">
-      <h2>Transactions</h2>
-      <ul id="tx-list"></ul>
-    </section>
-    <section class="panel">
-      <h2>Ask the agent</h2>
-      <div id="chat-log"></div>
-      <form id="chat-form">
-        <input name="message" placeholder="Why did my bill spike?" required />
-        <button type="submit">Send</button>
-      </form>
-    </section>
+
+    <aside class="assistant">
+      <div class="card chat-card">
+        <div class="card-head">
+          <div class="chat-title">
+            <span class="status-dot"></span>
+            <h2>Ask FlowLedger</h2>
+          </div>
+          <span class="muted small">Gemini</span>
+        </div>
+        <div id="chat-log" class="chat-log">
+          <div class="msg agent">
+            <div class="bubble">Hey — I am Gemini you can ask me Question of the Ledger <em>"what did I spend on food?"</em> or <em>"list my last 5 transactions"</em>.</div>
+          </div>
+        </div>
+        <form id="chat-form" class="chat-form">
+          <input name="message" placeholder="Ask about your spending…" required autocomplete="off" />
+          <button type="submit" aria-label="Send">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </aside>
   </main>
+
   <script src="app.js"></script>
 </body>
 </html>
